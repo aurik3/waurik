@@ -156,7 +156,7 @@ const provider = new CustomProvider({
 1. Haz un fork del repositorio
 2. Clona tu fork:
 ```bash
-git clone https://github.com/tu-usuario/waurik.git
+git clone https://github.com/aurik3/waurik.git
 cd waurik
 ```
 

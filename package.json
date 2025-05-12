@@ -1,9 +1,12 @@
 {
   "name": "waurik",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Librería para crear chatbots de WhatsApp usando decoradores",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "repository": {
+    "type": "github",
+    "url": "https://github.com/aurik3/waurik.git"},
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
