@@ -78,7 +78,9 @@ class RegistroFlow {
   async mainMenu(context: any) {
     // Este método se ejecuta cuando se muestra el menú
     // No requires cambios en el estado aquí
-  }  @Step('Por favor, ingrese su número de cédula:\n\n(Digite 0 para volver al menú principal)', 
+  }  
+  
+  @Step('Por favor, ingrese su número de cédula:\n\n(Digite 0 para volver al menú principal)', 
     { id: 'menuSoporte', backToMenu: true, menuCommand: '0' })
   async cedula(context: any) {
     const input = context.message.body.trim();
