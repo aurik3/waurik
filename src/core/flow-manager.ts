@@ -1,5 +1,7 @@
-import { IProvider, IMessage, IFlow, IState, IFlowContext } from '../types';
-import { getFlowMetadata, getStepMetadata, getStepsOrderMetadata, getFuncMetadata, getFuncsOrderMetadata, getApiMetadata, getApisOrderMetadata, getEventMetadata, getEventsOrderMetadata, getFilesMetadata, getInfoMetadata, getInfoOrderMetadata } from '../decorators';
+import { IProvider, IMessage, IFlow, IState, IFlowContext, MenuState } from '../types';
+import { getFlowMetadata, getStepMetadata, getStepsOrderMetadata, getFuncMetadata, getFuncsOrderMetadata, 
+  getApiMetadata, getApisOrderMetadata, getEventMetadata, getEventsOrderMetadata, getFilesMetadata, 
+  getInfoMetadata, getInfoOrderMetadata, getMenuMetadata, getMenuOrderMetadata, findDecoratorByIdInFlow } from '../decorators';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -49,7 +51,7 @@ export class FlowManager {
   }
 
   private async handleMessage(message: IMessage) {
-    let state = this.states.get(message.from) || {};
+    let state: MenuState = this.states.get(message.from) || {};
     let flow: any;
     let stepIndex: number;
     let stepProps: string[] = [];
@@ -58,7 +60,6 @@ export class FlowManager {
     if (!state.__flowKeyword) {
       const keyword = message.body.split(' ')[0].toLowerCase();
       flow = this.flows.get(keyword);
-      // Si no hay coincidencia exacta, buscar flujo comodín '*'
       if (!flow) {
         flow = this.flows.get('*');
         if (!flow) return;
@@ -73,7 +74,7 @@ export class FlowManager {
       if (!flow) return;
     }
 
-    // Obtener los pasos del flujo en el orden correcto usando el metadata
+    // Obtener los pasos del flujo en el orden correcto
     stepProps = getStepsOrderMetadata(Object.getPrototypeOf(flow));
     const funcProps = getFuncsOrderMetadata(Object.getPrototypeOf(flow));
     const apiProps = getApisOrderMetadata(Object.getPrototypeOf(flow));
@@ -87,7 +88,63 @@ export class FlowManager {
       provider: this.provider
     };
 
-    try {    // Si el flujo acaba de iniciar, mostrar el mensaje del primer step y esperar respuesta
+    try {      // Check if we're in a menu
+      if (currentStep) {
+        const menuMetadata = getMenuMetadata(flow, currentStep);
+        if (menuMetadata) {
+          // If we haven't shown the menu yet
+          if (state.__started === false) {
+            const fullMenuText = `${menuMetadata.message}\n\n${menuMetadata.options.map(opt => opt.option).join('\n')}`;
+            await this.provider.sendMessage(message.from, fullMenuText);
+            state.__started = true;
+            this.states.set(message.from, state);
+            return;
+          }
+
+          const selectedOption = menuMetadata.options.find(opt => 
+            message.body.trim() === opt.option.split('-')[0].trim());
+
+          if (selectedOption) {
+            // Find the decorator with matching ID
+            const targetDecorator = findDecoratorByIdInFlow(flow, selectedOption.goTo);
+            if (targetDecorator) {
+              state.__currentId = selectedOption.goTo;
+              
+              if (targetDecorator.type === 'info') {
+                let messageText = targetDecorator.metadata.message;
+                messageText = messageText.replace(/\{\{(.*?)\}\}/g, (_: string, key: string) => 
+                  state[key] || `{{${key}}}`);
+                await this.provider.sendMessage(message.from, messageText);
+                await flow[targetDecorator.name](context);
+                
+                // Clear the current menu state and move to next step
+                delete state.__currentId;
+                state.__stepIndex++;
+              } else if (targetDecorator.type === 'step') {
+                // Move to the step
+                const newStepIndex = stepProps.indexOf(targetDecorator.name);
+                if (newStepIndex !== -1) {
+                  state.__stepIndex = newStepIndex;
+                  let messageText = targetDecorator.metadata.message;
+                  messageText = messageText.replace(/\{\{(.*?)\}\}/g, (_: string, key: string) => 
+                    state[key] || `{{${key}}}`);
+                  await this.provider.sendMessage(message.from, messageText);
+                }
+              }
+              
+              this.states.set(message.from, state);
+              return;
+            }
+          }
+          
+          // If no valid option selected, show menu again
+          const fullMenuText = `❌ Opción no válida. Por favor seleccione una opción:\n\n${menuMetadata.options.map(opt => opt.option).join('\n')}`;
+          await this.provider.sendMessage(message.from, fullMenuText);
+          return;
+        }
+      }
+
+      // Normal flow handling continues...
       if (state.__started === false) {
         // Encontrar todos los decoradores en orden hasta el primer @Step
         const allDecorators = [...stepProps, ...infoProps].sort((a, b) => {
@@ -117,6 +174,36 @@ export class FlowManager {
           }
         }
       }      if (currentStep) {
+        const stepMetadata = getStepMetadata(flow, currentStep);
+        const infoMetadata = getInfoMetadata(flow, currentStep);      // Check for menu return command if backToMenu is enabled
+        if ((stepMetadata?.backToMenu || infoMetadata?.backToMenu) && 
+            message.body.trim().toLowerCase() === (stepMetadata?.menuCommand || infoMetadata?.menuCommand || '0').toLowerCase()) {
+          // Find the menu step
+          for (const prop of Object.getOwnPropertyNames(Object.getPrototypeOf(flow))) {
+            if (getMenuMetadata(flow, prop)) {
+              // Reset state and go back to menu
+              state.__stepIndex = stepProps.indexOf(prop);
+              state.__started = false;
+              
+              // Reset any stored responses that might have been collected
+              Object.keys(state).forEach(key => {
+                if (!key.startsWith('__')) {
+                  delete state[key];
+                }
+              });
+              
+              // Save state and trigger menu display
+              this.states.set(message.from, state);
+              
+              // Show menu immediately
+              const menuMetadata = getMenuMetadata(flow, prop);
+              const menuText = `${menuMetadata.message}\n\n${menuMetadata.options.map(opt => opt.option).join('\n')}`;
+              await this.provider.sendMessage(message.from, menuText);
+              return;
+            }
+          }
+        }
+
         // Ejecutar el paso actual (validación)
         const result = await this.executeStep(flow, currentStep, context);
         // Solo si el resultado es válido, guardar la respuesta y avanzar

@@ -54,4 +54,34 @@ export interface IFlowContext {
   state: IState;
   message: IMessage;
   provider: IProvider;
-} 
+}
+
+export interface MenuOption {
+  option: string;
+  goTo: string;
+}
+
+export interface DecoratorOptions {
+  id?: string;
+  backToMenu?: boolean;
+  menuCommand?: string;
+}
+
+export interface MenuMetadata {
+  message: string;
+  options: MenuOption[];
+}
+
+export interface StepMetadata {
+  message: string;
+  id?: string;
+}
+
+export interface InfoMetadata {
+  message: string;
+  id?: string;
+}
+
+export interface MenuState extends IState {
+  __currentId?: string;
+}
