@@ -22,4 +22,6 @@ export class Waurik {
   registerFlow(flowClass: any) {
     this.flowManager.registerFlow(flowClass);
   }
-} 
+}
+
+export { Flow, Step, Func, Event, Files, Api, Info } from './decorators';

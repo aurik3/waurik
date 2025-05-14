@@ -3,6 +3,8 @@ import 'reflect-metadata';
 const FLOW_METADATA_KEY = 'waurik:flow';
 const STEP_METADATA_KEY = 'waurik:step';
 const STEPS_ORDER_METADATA_KEY = 'waurik:steps_order';
+const INFO_METADATA_KEY = 'waurik:info';
+const INFO_ORDER_METADATA_KEY = 'waurik:info_order';
 const FUNC_METADATA_KEY = 'waurik:func';
 const FUNCS_ORDER_METADATA_KEY = 'waurik:funcs_order';
 const EVENT_METADATA_KEY = 'waurik:event';
@@ -25,6 +27,18 @@ export function Step(message: string) {
     if (!steps.includes(propertyKey)) {
       steps.push(propertyKey);
       Reflect.defineMetadata(STEPS_ORDER_METADATA_KEY, steps, target);
+    }
+  };
+}
+
+export function Info(message: string) {
+  return function (target: any, propertyKey: string) {
+    Reflect.defineMetadata(INFO_METADATA_KEY, { message }, target, propertyKey);
+    // Save the order of the info steps
+    const infos: string[] = Reflect.getMetadata(INFO_ORDER_METADATA_KEY, target) || [];
+    if (!infos.includes(propertyKey)) {
+      infos.push(propertyKey);
+      Reflect.defineMetadata(INFO_ORDER_METADATA_KEY, infos, target);
     }
   };
 }
@@ -83,6 +97,14 @@ export function getStepsOrderMetadata(target: any) {
   return Reflect.getMetadata(STEPS_ORDER_METADATA_KEY, target) || [];
 }
 
+export function getInfoMetadata(target: any, propertyKey: string) {
+  return Reflect.getMetadata(INFO_METADATA_KEY, target, propertyKey);
+}
+
+export function getInfoOrderMetadata(target: any) {
+  return Reflect.getMetadata(INFO_ORDER_METADATA_KEY, target) || [];
+}
+
 export function getFuncMetadata(target: any, propertyKey: string) {
   return Reflect.getMetadata(FUNC_METADATA_KEY, target, propertyKey);
 }
@@ -109,4 +131,4 @@ export function getEventsOrderMetadata(target: any) {
 
 export function getFilesMetadata(target: any, propertyKey: string) {
   return Reflect.getMetadata(FILES_METADATA_KEY, target, propertyKey);
-} 
+}

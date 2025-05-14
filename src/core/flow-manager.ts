@@ -1,5 +1,5 @@
 import { IProvider, IMessage, IFlow, IState, IFlowContext } from '../types';
-import { getFlowMetadata, getStepMetadata, getStepsOrderMetadata, getFuncMetadata, getFuncsOrderMetadata, getApiMetadata, getApisOrderMetadata, getEventMetadata, getEventsOrderMetadata, getFilesMetadata } from '../decorators';
+import { getFlowMetadata, getStepMetadata, getStepsOrderMetadata, getFuncMetadata, getFuncsOrderMetadata, getApiMetadata, getApisOrderMetadata, getEventMetadata, getEventsOrderMetadata, getFilesMetadata, getInfoMetadata, getInfoOrderMetadata } from '../decorators';
 import axios from 'axios';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -77,6 +77,7 @@ export class FlowManager {
     stepProps = getStepsOrderMetadata(Object.getPrototypeOf(flow));
     const funcProps = getFuncsOrderMetadata(Object.getPrototypeOf(flow));
     const apiProps = getApisOrderMetadata(Object.getPrototypeOf(flow));
+    const infoProps = getInfoOrderMetadata(Object.getPrototypeOf(flow));
 
     stepIndex = state.__stepIndex || 0;
     const currentStep = stepProps[stepIndex];
@@ -86,24 +87,59 @@ export class FlowManager {
       provider: this.provider
     };
 
-    try {
-      // Si el flujo acaba de iniciar, mostrar el mensaje del primer step y esperar respuesta
+    try {    // Si el flujo acaba de iniciar, mostrar el mensaje del primer step y esperar respuesta
       if (state.__started === false) {
-        const metadata = getStepMetadata(flow, currentStep);
-        let messageText = metadata.message;
-        messageText = messageText.replace(/\{\{(.*?)\}\}/g, (_: string, key: string) => state[key] || `{{${key}}}`);
-        await this.provider.sendMessage(message.from, messageText);
-        state.__started = true;
-        this.states.set(message.from, state);
-        return;
-      }
+        // Encontrar todos los decoradores en orden hasta el primer @Step
+        const allDecorators = [...stepProps, ...infoProps].sort((a, b) => {
+          const aIndex = Object.getOwnPropertyNames(flow.constructor.prototype).indexOf(a);
+          const bIndex = Object.getOwnPropertyNames(flow.constructor.prototype).indexOf(b);
+          return aIndex - bIndex;
+        });
 
-      if (currentStep) {
+        for (const decoratorName of allDecorators) {
+          const stepMetadata = getStepMetadata(flow, decoratorName);
+          const infoMetadata = getInfoMetadata(flow, decoratorName);
+          
+          if (stepMetadata && stepMetadata.message) {
+            // Si encontramos un @Step, enviamos su mensaje y detenemos
+            let messageText = stepMetadata.message;
+            messageText = messageText.replace(/\{\{(.*?)\}\}/g, (_: string, key: string) => state[key] || `{{${key}}}`);
+            await this.provider.sendMessage(message.from, messageText);
+            state.__started = true;
+            this.states.set(message.from, state);
+            return;
+          } else if (infoMetadata && infoMetadata.message) {
+            // Si encontramos un @Info, enviamos su mensaje y continuamos
+            let messageText = infoMetadata.message;
+            messageText = messageText.replace(/\{\{(.*?)\}\}/g, (_: string, key: string) => state[key] || `{{${key}}}`);
+            await this.provider.sendMessage(message.from, messageText);
+            await flow[decoratorName](context);
+          }
+        }
+      }      if (currentStep) {
         // Ejecutar el paso actual (validación)
         const result = await this.executeStep(flow, currentStep, context);
         // Solo si el resultado es válido, guardar la respuesta y avanzar
         if (result !== null && result !== undefined) {
           state[currentStep] = message.body;
+          
+          // Buscar si hay algún @Info que deba ejecutarse después de este paso
+          const allDecorators = [...stepProps, ...infoProps].sort((a, b) => {
+            const aIndex = Object.getOwnPropertyNames(flow.constructor.prototype).indexOf(a);
+            const bIndex = Object.getOwnPropertyNames(flow.constructor.prototype).indexOf(b);
+            return aIndex - bIndex;
+          });
+          
+          const currentStepIndex = allDecorators.indexOf(currentStep);
+          const nextStep = allDecorators[currentStepIndex + 1];
+          
+          if (nextStep && getInfoMetadata(flow, nextStep)) {
+            const infoMetadata = getInfoMetadata(flow, nextStep);
+            let messageText = infoMetadata.message;
+            messageText = messageText.replace(/\{\{(.*?)\}\}/g, (_: string, key: string) => state[key] || `{{${key}}}`);
+            await this.provider.sendMessage(message.from, messageText);
+            await flow[nextStep](context);
+          }
 
           // Ejecutar los métodos @Func en orden
           for (const funcName of funcProps) {
@@ -197,4 +233,4 @@ export class FlowManager {
       await flow[prop](context);
     }
   }
-} 
+}

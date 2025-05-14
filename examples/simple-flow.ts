@@ -1,10 +1,17 @@
 //@ts-nocheck
-import { Waurik, BaileysProvider, Flow, Step, Func, Event, Files, Api } from '../src';
+import { Waurik, BaileysProvider, Flow, Step, Func, Event, Files, Api, Info } from '../src';
 
 @Flow('*')
 class RegistroFlow {
+  @Info('🤖 Iniciando el proceso de registro...')
+  async inicio(context: any) {
+    // Este método se ejecutará al inicio pero no esperará respuesta
+  }
 
-  @Step('Hola Binevenido al chat de aurik.')
+  @Info('Por favor, lee atentamente las instrucciones.')
+  async instrucciones(context: any) {
+    // Este método se ejecutará al inicio pero no esperará respuesta
+  }
 
   @Step('vamos a proeder con el registro. Por favor, ingresa tu nombre:')
   async nombre(context: any) {
@@ -20,7 +27,6 @@ class RegistroFlow {
   //   }
   //   return edad;
   // }
-
   // @Func()
   // async validarEdad(context: any) {
   //   console.log(context.state);
@@ -31,10 +37,16 @@ class RegistroFlow {
   //   return true;
   // }
 
-  @Files('./uploads')
-  async documento(context: any) {
-    return context.state.documento;
+  @Info('Hello {{nombre}}, thanks for your interest!')
+  async agradecimiento(context: any) {
+    // Este método se ejecutará después de enviar el mensaje de agradecimiento
+    // No necesita retornar nada ya que no espera respuesta del usuario
   }
+
+  // @Files('./uploads')
+  // async documento(context: any) {
+  //   return context.state.documento;
+  // }
   // @Api('GET', 'https://jsonplaceholder.typicode.com/todos/1')
   // async guardarRegistro(context: any) {
   //   return context.state.data;
@@ -66,4 +78,4 @@ async function main() {
   await waurik.initialize();
 }
 
-main().catch(console.error); 
+main().catch(console.error);

@@ -41,6 +41,11 @@ export interface IStep {
   validation?: (message: IMessage) => boolean;
 }
 
+export interface IInfo {
+  message: string;
+  metadata?: any;
+}
+
 export interface IState {
   [key: string]: any;
 }
