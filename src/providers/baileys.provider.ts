@@ -1,11 +1,15 @@
 import { makeWASocket, DisconnectReason, useMultiFileAuthState } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import express from 'express';
-import qrcode from 'qrcode-terminal';
 import QRCode from 'qrcode';
 import pino from 'pino';
 import { IProvider, IMessage, MessageType, ConnectionStatus } from '../types';
 import { EventEmitter } from 'events';
+
+export interface BaileysProviderOptions {
+  authFolder?: string;
+  port?: number;
+}
 
 export class BaileysProvider implements IProvider {
   private sock: any;
@@ -16,17 +20,29 @@ export class BaileysProvider implements IProvider {
   private isConnected: boolean = false;
   private serverStarted: boolean = false;
   private eventEmitter = new EventEmitter();
+  private port: number;
+  private authFolder:string;
 
-  constructor(private authFolder: string = './auth') {
+  constructor(options: BaileysProviderOptions = {}) {
+    const { authFolder = './auth', port = 3000 } = options;
+    this.port = port;
     this.app = express();
+    this.app.use(express.json());
     this.setupExpress();
+    this.authFolder = authFolder;
   }
 
   private setupExpress() {
+
     this.app.get('/status', (req, res) => {
       res.json({ 
         status: this.isConnected ? 'connected' : 'disconnected',
-        qrCode: this.qrCode
+        qrCode: this.qrCode ? 'available' : 'not available',
+        connectionDetails: {
+          isConnected: this.isConnected,
+          hasSocket: !!this.sock,
+          serverStarted: this.serverStarted
+        }
       });
     });
 
@@ -79,6 +95,21 @@ export class BaileysProvider implements IProvider {
         res.status(404).send('No QR code available');
       }
     });
+
+    this.app.post('/api/v1/message', async (req, res) => {
+
+      console.log(req.body);
+      const { to, message } = req.body;
+      if (!to || !message) {
+        return res.status(400).send('Bad Request');
+      }
+      const response = await this.sock.sendMessage(to, { text: message });
+      if (response) {
+        res.status(200).send('Message sent');
+      } else {
+        res.status(500).send('Error sending message');
+      }
+    }); 
   }
 
   async initialize(): Promise<void> {
@@ -133,9 +164,11 @@ export class BaileysProvider implements IProvider {
       });
 
       if (!this.serverStarted) {
-        this.app.listen(3000, () => {
-          console.log('Servidor Express ejecutándose en http://localhost:3000');
-          console.log('Para escanear el código QR, visita: http://localhost:3000/qr');
+        this.app.listen(this.port, () => {
+          console.log(`Servidor Express ejecutándose en http://localhost:${this.port}`);
+          console.log(`Para ver el estado de la conexión, visita: http://localhost:${this.port}/status`);
+          console.log(`Para escanear el código QR, visita: http://localhost:${this.port}/qr`);
+          console.log(`Para enviar mensajes, usa: http://localhost:${this.port}/api/v1/message`);
         });
         this.serverStarted = true;
       }
