@@ -313,4 +313,95 @@ interface State {
 3. **Seguridad**:
    - Implementa rate limiting
    - Valida entradas
-   - Maneja secretos de forma segura 
+   - Maneja secretos de forma segura
+
+## Decoradores Disponibles
+
+#### @Menu
+El decorador `@Menu` permite crear menús interactivos y manejar la navegación entre diferentes partes del flujo.
+
+```typescript
+interface MenuOption {
+  option: string;   // Texto que se mostrará como opción
+  goTo: string;     // ID del decorador al que se navegará
+}
+
+interface MenuMetadata {
+  type: 'menu';
+  message: string;
+  options: MenuOption[];
+}
+
+export function Menu(message: string, options: MenuOption[]) {
+  return function (target: any, propertyKey: string) {
+    // Almacenar metadatos del menú
+    Reflect.defineMetadata('decorator:menu', {
+      type: 'menu',
+      message,
+      options
+    }, target, propertyKey);
+  };
+}
+```
+
+#### @Info
+El decorador `@Info` permite mostrar mensajes informativos sin esperar una respuesta del usuario.
+
+```typescript
+interface InfoOptions {
+  backToMenu?: boolean;    // Permitir volver al menú principal
+  menuCommand?: string;    // Comando para volver al menú (default: '0')
+}
+
+interface InfoMetadata {
+  type: 'info';
+  message: string;
+  backToMenu?: boolean;
+  menuCommand?: string;
+}
+
+export function Info(message: string, options: InfoOptions = {}) {
+  return function (target: any, propertyKey: string) {
+    // Almacenar metadatos del mensaje informativo
+    Reflect.defineMetadata('decorator:info', {
+      type: 'info',
+      message,
+      backToMenu: options.backToMenu,
+      menuCommand: options.menuCommand || '0'
+    }, target, propertyKey);
+  };
+}
+```
+
+### Manejo de Estado en Menús
+
+El sistema mantiene el estado de la navegación usando las siguientes propiedades:
+
+```typescript
+interface MenuState extends IState {
+  __flowKeyword?: string;    // Palabra clave del flujo actual
+  __stepIndex?: number;      // Índice del paso actual
+  __started?: boolean;       // Si el paso actual ya mostró su mensaje
+  __currentId?: string;      // ID del decorador actual (usado en menús)
+}
+```
+
+### Navegación y Retorno al Menú
+
+Para implementar el retorno al menú:
+
+1. Los decoradores @Step e @Info pueden configurarse con la opción `backToMenu`:
+   ```typescript
+   @Step('Mensaje...', { backToMenu: true, menuCommand: '0' })
+   ```
+
+2. El `FlowManager` detecta el comando de retorno y:
+   - Busca el primer decorador @Menu en el flujo
+   - Limpia el estado actual
+   - Resetea el índice al menú
+   - Muestra las opciones del menú
+
+3. Los estados se preservan por chat usando el ID del remitente:
+   ```typescript
+   private states: Map<string, MenuState>
+   ```

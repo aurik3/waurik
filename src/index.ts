@@ -22,4 +22,8 @@ export class Waurik {
   registerFlow(flowClass: any) {
     this.flowManager.registerFlow(flowClass);
   }
-} 
+}
+
+export { Flow, Menu, Step, Info, Func, Event, Files, Api, AI, MetaButtons, MetaList } from './decorators';
+export { IProvider, IMessage, IFlow, IState, IFlowContext, ILLMProvider, IntentMapping, AIMetadata } from './types';
+export { GenericLLMProvider, defaultLLMProvider } from './providers/llm/generic-llm.provider';

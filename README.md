@@ -112,6 +112,57 @@ async guardarRegistro(context: any) {
 }
 ```
 
+### @Menu
+Define un menú interactivo con opciones que pueden navegar a diferentes partes del flujo.
+
+```typescript
+@Menu(
+  '¿En qué puedo ayudarte?',
+  [
+    { option: "1 - Ver productos", goTo: "productos" },
+    { option: "2 - Hacer pedido", goTo: "pedido" },
+    { option: "3 - Contactar soporte", goTo: "soporte" }
+  ]
+)
+async mainMenu(context: any) {
+  // Lógica adicional del menú si es necesaria
+}
+```
+
+### @Info
+Muestra un mensaje informativo sin esperar respuesta del usuario.
+
+```typescript
+@Info('Tu pedido ha sido registrado correctamente.')
+async confirmacion(context: any) {
+  // Lógica adicional si es necesaria
+}
+```
+
+### Opciones adicionales para decoradores
+
+Los decoradores @Step e @Info soportan opciones adicionales para el manejo del flujo:
+
+```typescript
+// Permitir volver al menú principal con el comando '0'
+@Step('¿Cuál es tu nombre?', { 
+  backToMenu: true,
+  menuCommand: '0' // opcional, por defecto es '0'
+})
+async pedirNombre(context: any) {
+  return context.message.body;
+}
+
+// También funciona con @Info
+@Info('Procesando tu pedido...', { 
+  backToMenu: true,
+  menuCommand: '#' // usando un comando personalizado
+})
+async procesando(context: any) {
+  // Lógica adicional
+}
+```
+
 ## Proveedores
 
 ### BaileysProvider
@@ -252,4 +303,4 @@ Las sugerencias son bienvenidas. Por favor:
 
 ## Licencia
 
-MIT 
+MIT

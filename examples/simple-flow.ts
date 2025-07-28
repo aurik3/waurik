@@ -1,69 +1,83 @@
 //@ts-nocheck
-import { Waurik, BaileysProvider, Flow, Step, Func, Event, Files, Api } from '../src';
+import { Waurik, BaileysProvider, Flow, Step, Func, Event, Files, Api, Info, Menu } from '../src';
 
 @Flow('*')
 class RegistroFlow {
 
-  @Step('Hola Binevenido al chat de aurik.')
+  @Menu(
+    '¿En qué puedo ayudarte hoy? Por favor, selecciona una opción:',
+    [
+      {
+        option: "1 - Soporte",
+        goTo: "menuSoporte"
+      },
+      {
+        option: "2 - Servicio al Cliente",
+        goTo: "menuSAC"
+      },
+      {
+        option: "3 - Pagos",      
+        goTo: "menuPagos"
+      },
+      {
+        menuCommand: "0",
+      }    
+    ]    
+  )
+  async mainMenu(context: any) {
+    // Este método se ejecuta cuando se muestra el menú
+    // No requires cambios en el estado aquí
+  }  
+  
+  @Step('Por favor, ingrese su número de cédula:\n\n(Digite 0 para volver al menú principal)', 
+    { id: 'menuSoporte', backToMenu: true, saveAs: 'numeroCedula' })
+  async cedula(context: any) {
+    const input = context.message.body.trim();
+    console.log('Cédula ingresada:', input);
+    console.log('Estado actual:', context.state);
+    return input;
+  }
 
-  @Step('vamos a proeder con el registro. Por favor, ingresa tu nombre:')
+  @Step('Por favor, ingrese su nombre completo:', 
+    { saveAs: 'nombreCompleto' })
   async nombre(context: any) {
-    return context.message.body;
+    const input = context.message.body.trim();
+    console.log('Nombre ingresado:', input);
+    console.log('Estado actual:', context.state);
+    return input;
   }
 
-  // @Step('Gracias {{nombre}}. Ahora ingresa tu edad:')
-  // async edad(context: any) {
-  //   const edad = parseInt(context.message.body);
-  //   if (isNaN(edad)) {
-  //     await context.provider.sendMessage(context.message.from, 'Por favor, ingresa un número válido.');
-  //     return null;
-  //   }
-  //   return edad;
-  // }
-
-  // @Func()
-  // async validarEdad(context: any) {
-  //   console.log(context.state);
-  //   if (context.state.edad < 18) {
-  //     await context.provider.sendMessage(context.message.from, 'Lo siento, debes ser mayor de edad para registrarte.');
-  //     return false;
-  //   }
-  //   return true;
-  // }
-
-  @Files('./uploads')
-  async documento(context: any) {
-    return context.state.documento;
+  @Info('Gracias {{nombreCompleto}}, su cédula {{numeroCedula}} ha sido registrada correctamente.')
+  async confirmacion(context: any) {
+    console.log('Datos finales guardados:', {
+      cedula: context.state.numeroCedula,
+      nombre: context.state.nombreCompleto
+    });
   }
-  // @Api('GET', 'https://jsonplaceholder.typicode.com/todos/1')
-  // async guardarRegistro(context: any) {
-  //   return context.state.data;
+
+  // @Info('📞 Información de Servicio al Cliente:\nHorario de atención: 24/7\nLínea gratuita: 018000123456\n\n(Digite 0 para volver al menú principal)', 
+  //   { id: 'menuSAC', backToMenu: true })
+  // async infoSAC(context: any) {
+  //   // Método vacío ya que solo es informativo
   // }
 
-  // @Step('¡Registro completado! Tu ID es: {{guardarRegistro}}')
-  // async finalizar(context: any) {
-  //   return null;
+  // @Info('💰 Información de Pagos:\nPuede realizar sus pagos en:\n- PSE\n- Efecty\n- Bancolombia\n\n(Digite 0 para volver al menú principal)', 
+  //   { id: 'menuPagos', backToMenu: true })
+  // async infoPagos(context: any) {
+  //   // Método vacío ya que solo es informativo
   // }
-
-  // @Event('messages.upsert')
-  // async onAnyMessage(context: any) {
-  //   // Puedes acceder a toda la información del mensaje recibido
-  //   console.log('Evento global: mensaje recibido', context.message);
-  //   // Por ejemplo, podrías guardar logs, estadísticas, etc.
-  // }
-
-
-
 
 }
 
 
 async function main() {
-  const provider = new BaileysProvider();
+  const provider = new BaileysProvider({
+    port: 4001
+  });
   const waurik = new Waurik(provider);
 
   waurik.registerFlow(RegistroFlow);
   await waurik.initialize();
 }
 
-main().catch(console.error); 
+main().catch(console.error);

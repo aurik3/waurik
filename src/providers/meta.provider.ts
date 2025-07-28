@@ -1,5 +1,5 @@
 import express from 'express';
-import { IProvider, IMessage, MessageType, ConnectionStatus } from '../types';
+import { IProvider, IMessage, MessageType, ConnectionStatus, MetaButton, MetaButtonsMetadata, MetaListMetadata } from '../types';
 import axios from 'axios';
 
 export class MetaProvider implements IProvider {
@@ -48,10 +48,28 @@ export class MetaProvider implements IProvider {
           entry.changes.forEach((change: any) => {
             if (change.value.messages) {
               change.value.messages.forEach((message: any) => {
+                let messageBody = '';
+                let messageType = MessageType.TEXT;
+
+                // Manejar diferentes tipos de mensajes
+                if (message.text) {
+                  messageBody = message.text.body;
+                  messageType = MessageType.TEXT;
+                } else if (message.interactive) {
+                  // Respuesta de botón o lista
+                  if (message.interactive.type === 'button_reply') {
+                    messageBody = message.interactive.button_reply.title;
+                    messageType = MessageType.TEXT;
+                  } else if (message.interactive.type === 'list_reply') {
+                    messageBody = message.interactive.list_reply.title;
+                    messageType = MessageType.TEXT;
+                  }
+                }
+
                 const msg: IMessage = {
                   from: message.from,
-                  body: message.text?.body || '',
-                  type: MessageType.TEXT,
+                  body: messageBody,
+                  type: messageType,
                   timestamp: message.timestamp,
                   metadata: message
                 };
@@ -108,6 +126,112 @@ export class MetaProvider implements IProvider {
     }
   }
 
+  async sendButtonsMessage(to: string, buttonsData: MetaButtonsMetadata): Promise<void> {
+    try {
+      const payload: any = {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: {
+            text: buttonsData.body
+          },
+          action: {
+            buttons: buttonsData.buttons.map((button, index) => ({
+              type: 'reply',
+              reply: {
+                id: button.id || `btn_${index}`,
+                title: button.title
+              }
+            }))
+          }
+        }
+      };
+
+      if (buttonsData.header) {
+        payload.interactive.header = {
+          type: 'text',
+          text: buttonsData.header
+        };
+      }
+
+      if (buttonsData.footer) {
+        payload.interactive.footer = {
+          text: buttonsData.footer
+        };
+      }
+
+      await axios.post(
+        `https://graph.facebook.com/v17.0/${this.phoneNumberId}/messages`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error sending buttons message:', error);
+      throw error;
+    }
+  }
+
+  async sendListMessage(to: string, listData: MetaListMetadata): Promise<void> {
+    try {
+      const payload: any = {
+        messaging_product: 'whatsapp',
+        to,
+        type: 'interactive',
+        interactive: {
+          type: 'list',
+          body: {
+            text: listData.body
+          },
+          action: {
+            button: listData.button_text,
+            sections: listData.sections.map(section => ({
+              title: section.title,
+              rows: section.rows.map(row => ({
+                id: row.id,
+                title: row.title,
+                description: row.description
+              }))
+            }))
+          }
+        }
+      };
+
+      if (listData.header) {
+        payload.interactive.header = {
+          type: 'text',
+          text: listData.header
+        };
+      }
+
+      if (listData.footer) {
+        payload.interactive.footer = {
+          text: listData.footer
+        };
+      }
+
+      await axios.post(
+        `https://graph.facebook.com/v17.0/${this.phoneNumberId}/messages`,
+        payload,
+        {
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Error sending list message:', error);
+      throw error;
+    }
+  }
+
   onMessage(callback: (message: IMessage) => void): void {
     this.messageCallback = callback;
   }
@@ -115,4 +239,4 @@ export class MetaProvider implements IProvider {
   onConnection(callback: (status: ConnectionStatus) => void): void {
     this.connectionCallback = callback;
   }
-} 
+}
