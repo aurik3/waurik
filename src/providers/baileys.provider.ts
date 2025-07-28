@@ -118,8 +118,14 @@ export class BaileysProvider implements IProvider {
       
       this.sock = makeWASocket({
         auth: state,
+        version:[2, 3000, 1025091846],
         printQRInTerminal: false,
         logger: pino({ level: 'silent' })
+      });
+
+      this.sock.ev.on('call', (update: any) => {
+        console.log(update);
+        this.eventEmitter.emit('call', update);
       });
 
       this.sock.ev.on('connection.update', async (update: any) => {
@@ -150,6 +156,9 @@ export class BaileysProvider implements IProvider {
 
       this.sock.ev.on('messages.upsert', async (m: any) => {
         const msg = m.messages[0];
+
+        console.log(msg);
+
         if (!msg.key.fromMe && msg.message) {
           const message: IMessage = {
             from: msg.key.remoteJid,
