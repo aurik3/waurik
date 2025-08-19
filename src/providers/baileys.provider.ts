@@ -5,10 +5,13 @@ import QRCode from 'qrcode';
 import pino from 'pino';
 import { IProvider, IMessage, MessageType, ConnectionStatus } from '../types';
 import { EventEmitter } from 'events';
+import * as fs from 'fs';
+import * as path from 'path';
 
 export interface BaileysProviderOptions {
   authFolder?: string;
   port?: number;
+  sessionName?: string;
 }
 
 export class BaileysProvider implements IProvider {
@@ -21,20 +24,32 @@ export class BaileysProvider implements IProvider {
   private serverStarted: boolean = false;
   private eventEmitter = new EventEmitter();
   private port: number;
-  private authFolder:string;
+  private authFolder: string;
+  private sessionName: string;
 
   constructor(options: BaileysProviderOptions = {}) {
-    const { authFolder = './auth', port = 3000 } = options;
+    const { port = 3000, sessionName = 'default' } = options;
+    const baseAuthFolder = options.authFolder || './auth';
+    
     this.port = port;
+    this.sessionName = sessionName;
     this.app = express();
     this.app.use(express.json());
     this.setupExpress();
-    this.authFolder = authFolder;
+    
+    // Crear la ruta de la sesión específica dentro de la carpeta auth
+    this.authFolder = path.join(baseAuthFolder, sessionName);
+    
+    // Asegurar que la carpeta base auth existe
+    if (!fs.existsSync(baseAuthFolder)) {
+      fs.mkdirSync(baseAuthFolder, { recursive: true });
+    }
   }
 
   private setupExpress() {
 
     this.app.get('/status', (req, res) => {
+      const sessionInfo = this.getSessionInfo();
       res.json({ 
         status: this.isConnected ? 'connected' : 'disconnected',
         qrCode: this.qrCode ? 'available' : 'not available',
@@ -42,7 +57,8 @@ export class BaileysProvider implements IProvider {
           isConnected: this.isConnected,
           hasSocket: !!this.sock,
           serverStarted: this.serverStarted
-        }
+        },
+        session: sessionInfo
       });
     });
 
@@ -93,6 +109,44 @@ export class BaileysProvider implements IProvider {
         `);
       } else {
         res.status(404).send('No QR code available');
+      }
+    });
+
+    // Endpoint para listar todas las sesiones disponibles
+    this.app.get('/sessions', (req, res) => {
+      const sessions = BaileysProvider.listAvailableSessions();
+      res.json({
+        sessions,
+        currentSession: this.sessionName,
+        totalSessions: sessions.length
+      });
+    });
+
+    // Endpoint para obtener información de la sesión actual
+    this.app.get('/session/info', (req, res) => {
+      const sessionInfo = this.getSessionInfo();
+      res.json(sessionInfo);
+    });
+
+    // Endpoint para eliminar la sesión actual
+    this.app.delete('/session', (req, res) => {
+      if (this.isConnected) {
+        res.status(400).json({ 
+          error: 'No se puede eliminar una sesión activa. Desconecta primero.' 
+        });
+        return;
+      }
+
+      const deleted = this.deleteSession();
+      if (deleted) {
+        res.json({ 
+          message: `Sesión '${this.sessionName}' eliminada exitosamente`,
+          sessionName: this.sessionName 
+        });
+      } else {
+        res.status(404).json({ 
+          error: `No se pudo eliminar la sesión '${this.sessionName}' o no existe` 
+        });
       }
     });
 
@@ -206,4 +260,75 @@ export class BaileysProvider implements IProvider {
   on(eventName: string, callback: (...args: any[]) => void): void {
     this.eventEmitter.on(eventName, callback);
   }
-} 
+
+  /**
+   * Valida si existe una sesión con el nombre especificado
+   */
+  validateSession(): boolean {
+    try {
+      return fs.existsSync(this.authFolder) && fs.statSync(this.authFolder).isDirectory();
+    } catch (error) {
+      return false;
+    }
+  }
+
+  /**
+   * Obtiene información sobre la sesión actual
+   */
+  getSessionInfo(): { sessionName: string; authFolder: string; exists: boolean; files?: string[] } {
+    const exists = this.validateSession();
+    let files: string[] = [];
+    
+    if (exists) {
+      try {
+        files = fs.readdirSync(this.authFolder);
+      } catch (error) {
+        console.error('Error al leer archivos de sesión:', error);
+      }
+    }
+
+    return {
+      sessionName: this.sessionName,
+      authFolder: this.authFolder,
+      exists,
+      files: exists ? files : undefined
+    };
+  }
+
+  /**
+   * Lista todas las sesiones disponibles en la carpeta auth
+   */
+  static listAvailableSessions(authBaseFolder: string = './auth'): string[] {
+    try {
+      if (!fs.existsSync(authBaseFolder)) {
+        return [];
+      }
+      
+      return fs.readdirSync(authBaseFolder)
+        .filter(item => {
+          const itemPath = path.join(authBaseFolder, item);
+          return fs.statSync(itemPath).isDirectory();
+        });
+    } catch (error) {
+      console.error('Error al listar sesiones:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Elimina una sesión específica
+   */
+  deleteSession(): boolean {
+    try {
+      if (this.validateSession()) {
+        fs.rmSync(this.authFolder, { recursive: true, force: true });
+        console.log(`Sesión '${this.sessionName}' eliminada exitosamente`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Error al eliminar sesión:', error);
+      return false;
+    }
+  }
+}

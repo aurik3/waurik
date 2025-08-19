@@ -27,48 +27,48 @@ const intents: IntentMapping[] = [
 export class AIFlow {
   
   //@ts-ignore
-  // @AI(
-  //   '¡Hola! 👋 Bienvenido a nuestro asistente virtual.',
-  //   '¿En qué puedo ayudarte hoy?',
-  //   intents
-  // )
-  // async asistente(context: IFlowContext) {
-  //   // Este método se ejecuta cuando se detecta una intención
-  //   console.log('Asistente AI procesando:', context.message.body);
-  // }
+  @AI(
+    '¡Hola! 👋 Bienvenido a nuestro asistente virtual.',
+    '¿En qué puedo ayudarte hoy?',
+    intents
+  )
+  async asistente(context: IFlowContext) {
+    // Este método se ejecuta cuando se detecta una intención
+    console.log('Asistente AI procesando:', context.message.body);
+  }
 
-  // //@ts-ignore
-  // @Step('Perfecto, te ayudo con tu pago. ¿Cuál es el monto que deseas pagar?', { id: 'pago', saveAs: 'montoPago' })
-  // async procesarPago(context: IFlowContext) {
-  //   const monto = parseFloat(context.message.body);
-  //   if (isNaN(monto) || monto <= 0) {
-  //     await context.provider.sendMessage(context.message.from, '❌ Por favor ingresa un monto válido.');
-  //     return null; // Repetir el paso
-  //   }
-  //   return monto;
-  // }
+  //@ts-ignore
+  @Step('Perfecto, te ayudo con tu pago. ¿Cuál es el monto que deseas pagar?', { id: 'pago', saveAs: 'montoPago' })
+  async procesarPago(context: IFlowContext) {
+    const monto = parseFloat(context.message.body);
+    if (isNaN(monto) || monto <= 0) {
+      await context.provider.sendMessage(context.message.from, '❌ Por favor ingresa un monto válido.');
+      return null; // Repetir el paso
+    }
+    return monto;
+  }
 
-  // //@ts-ignore
-  // @Step('Has ingresado ${{montoPago}}. ¿Confirmas el pago? (si/no)', { id: 'confirmar-pago' })
-  // async confirmarPago(context: IFlowContext) {
-  //   const respuesta = context.message.body.toLowerCase();
-  //   if (respuesta === 'si' || respuesta === 'sí') {
-  //     await context.provider.sendMessage(context.message.from, '✅ Pago procesado exitosamente por $' + context.state.montoPago);
-  //     return 'confirmado';
-  //   } else if (respuesta === 'no') {
-  //     await context.provider.sendMessage(context.message.from, '❌ Pago cancelado.');
-  //     return 'cancelado';
-  //   } else {
-  //     await context.provider.sendMessage(context.message.from, 'Por favor responde "si" o "no".');
-  //     return null;
-  //   }
-  // }
+  //@ts-ignore
+  @Step('Has ingresado ${{montoPago}}. ¿Confirmas el pago? (si/no)', { id: 'confirmar-pago' })
+  async confirmarPago(context: IFlowContext) {
+    const respuesta = context.message.body.toLowerCase();
+    if (respuesta === 'si' || respuesta === 'sí') {
+      await context.provider.sendMessage(context.message.from, '✅ Pago procesado exitosamente por $' + context.state.montoPago);
+      return 'confirmado';
+    } else if (respuesta === 'no') {
+      await context.provider.sendMessage(context.message.from, '❌ Pago cancelado.');
+      return 'cancelado';
+    } else {
+      await context.provider.sendMessage(context.message.from, 'Por favor responde "si" o "no".');
+      return null;
+    }
+  }
 
-  // //@ts-ignore
-  // @Info('Estás en soporte técnico. Nuestro equipo te contactará pronto. 📞\n\nEscribe "menu" para volver al inicio.', { id: 'soporte' })
-  // async soporte(context: IFlowContext) {
-  //   console.log('Usuario solicitó soporte:', context.message.from);
-  // }
+  //@ts-ignore
+  @Info('Estás en soporte técnico. Nuestro equipo te contactará pronto. 📞\n\nEscribe "menu" para volver al inicio.', { id: 'soporte' })
+  async soporte(context: IFlowContext) {
+    console.log('Usuario solicitó soporte:', context.message.from);
+  }
 
   //@ts-ignore
   @Info('Aquí tienes información sobre nuestros servicios:\n\n• Pagos en línea\n• Soporte 24/7\n• Consultas generales\n\nEscribe "menu" para volver al inicio.', { id: 'informacion' })

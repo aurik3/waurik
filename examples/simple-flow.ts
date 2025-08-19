@@ -71,13 +71,49 @@ class RegistroFlow {
 
 
 async function main() {
+  // Ahora puedes especificar un nombre para tu sesión
+  // Esto creará una carpeta específica en auth/{sessionName}
   const provider = new BaileysProvider({
-    port: 4001
+    port: 4005,
+    sessionName: 'registro-bot' // Nombre personalizado para esta sesión
   });
+  
+  // Verificar información de la sesión
+  console.log('=== Información de Sesión ===');
+  console.log('Sesión:', provider.getSessionInfo());
+  console.log('Sesiones disponibles:', BaileysProvider.listAvailableSessions());
+  
   const waurik = new Waurik(provider);
-
   waurik.registerFlow(RegistroFlow);
+  
+  console.log('\n=== Endpoints de Gestión de Sesiones ===');
+  console.log('- Estado: http://localhost:4005/status');
+  console.log('- Info de sesión: http://localhost:4005/session/info');
+  console.log('- Todas las sesiones: http://localhost:4005/sessions');
+  console.log('- QR Code: http://localhost:4005/qr');
+  
   await waurik.initialize();
 }
 
 main().catch(console.error);
+
+// Ejemplo de cómo crear múltiples sesiones
+// Descomenta para probar:
+/*
+async function createMultipleSessions() {
+  // Sesión para trabajo
+  const workProvider = new BaileysProvider({
+    port: 4002,
+    sessionName: 'trabajo'
+  });
+  
+  // Sesión personal
+  const personalProvider = new BaileysProvider({
+    port: 4003,
+    sessionName: 'personal'
+  });
+  
+  console.log('Sesión trabajo:', workProvider.getSessionInfo());
+  console.log('Sesión personal:', personalProvider.getSessionInfo());
+}
+*/
